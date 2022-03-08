@@ -2,11 +2,10 @@ import cv2
 
 def detect_faces(in_image):
     path = 'models/haarcascade_frontalface_alt.xml'
-    haar = cv2.CascadeClassifier()
-    haar.load(cv2.samples.findFile(path))
+    haar = cv2.CascadeClassifier(path)
     image = cv2.cvtColor(in_image, cv2.COLOR_BGR2GRAY)
     image = cv2.equalizeHist(image)
-    faces = haar.detectMultiScale(image)
+    faces = haar.detectMultiScale(image, minNeighbors=9, minSize=(100,100))
     return faces
 
 #Test the function
