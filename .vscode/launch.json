@@ -5,10 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Main",
+            "name": "Real Estate",
             "type": "python",
             "request": "launch",
-            "program": "main.py",
+            "program": "real.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Face",
+            "type": "python",
+            "request": "launch",
+            "program": "face_main.py",
             "console": "integratedTerminal"
         },
         {
