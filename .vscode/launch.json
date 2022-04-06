@@ -8,7 +8,7 @@
             "name": "Real Estate",
             "type": "python",
             "request": "launch",
-            "program": "real.py",
+            "program": "real_estate.py",
             "console": "integratedTerminal"
         },
         {
