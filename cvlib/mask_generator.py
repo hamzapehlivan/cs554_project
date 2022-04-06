@@ -55,7 +55,7 @@ def RandomBrush(max_tries,
         mask = np.flip(mask, 1)
     return mask
 
-def RandomMask(s, hole_range=[0.0,0.6]):
+def RandomMask(s, hole_range=[0.0,1.0]):
     coef = min(hole_range[0] + hole_range[1], 1.0)
     while True:
         mask = np.ones((s, s), np.uint8)
@@ -67,9 +67,9 @@ def RandomMask(s, hole_range=[0.0,0.6]):
         def MultiFill(max_tries, max_size):
             for _ in range(np.random.randint(max_tries)):
                 Fill(max_size)
-        MultiFill(int(5 * coef), s // 2)
-        #MultiFill(int(4* coef), s)
-        mask = np.logical_and(mask, 1 - RandomBrush(int(10 * coef), s))
+        MultiFill(int(10 * coef), s // 2)
+        MultiFill(int(5* coef), s)
+        mask = np.logical_and(mask, 1 - RandomBrush(int(20 * coef), s))
         hole_ratio = 1 - np.mean(mask)
         if hole_range is not None and (hole_ratio <= hole_range[0] or hole_ratio >= hole_range[1]):
             continue
