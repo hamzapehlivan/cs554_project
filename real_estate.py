@@ -1,11 +1,16 @@
-from cvlib import face_detector, mask_generator
 import cv2
 import numpy as np
 
+#data/TransFill_Testing_Data/Real_Set/target/3_target.png
+#data/TransFill_Testing_Data/Small_Set/source/21d5b2ebb33325f9_10_target_x1_REFO.png
 image_target = cv2.imread("data/TransFill_Testing_Data/Real_Set/target/1_target.png", cv2.IMREAD_COLOR)
+#data/TransFill_Testing_Data/Real_Set/hole/3_hole.png
+#data/TransFill_Testing_Data/Small_Set/hole/hole.png
 mask = cv2.imread("data/TransFill_Testing_Data/Real_Set/hole/1_hole.png", cv2.IMREAD_GRAYSCALE) /255
 mask = np.expand_dims(1-mask, -1).astype(np.uint8)
 masked_target = image_target * mask
+#data/TransFill_Testing_Data/Real_Set/source/3_source.png
+#data/TransFill_Testing_Data/Small_Set/target/21d5b2ebb33325f9_10_target_x1_GT.png
 image_ref = cv2.imread("data/TransFill_Testing_Data/Real_Set/source/1_source.png", cv2.IMREAD_COLOR)
 
 cv2.imwrite("results/ref.png", image_ref)
@@ -35,8 +40,8 @@ for nearest, second_nearest in knn_matches:
 out = cv2.drawMatches(image_ref,reference_kps,masked_target,target_kps,matches,None)
 cv2.imwrite("results/matches.png", out)
 
-reference_pts = np.float32([ reference_kps[m.queryIdx].pt for m in matches ]).reshape(-1,1,2)
-target_pts = np.float32([ target_kps[m.trainIdx].pt for m in matches ]).reshape(-1,1,2)
+reference_pts = np.float32([ reference_kps[m.queryIdx].pt for m in matches ])
+target_pts = np.float32([ target_kps[m.trainIdx].pt for m in matches ])
 H, inliers= cv2.findHomography(reference_pts, target_pts, cv2.RANSAC,ransacReprojThreshold=5)
 inliers = inliers.ravel().tolist()
 
@@ -51,4 +56,3 @@ mask = np.broadcast_to(mask, masked_target.shape)
 result[mask==1] = masked_target[mask==1]
 result[mask==0] = warped[mask==0]
 cv2.imwrite("results/result.png", result)
-
