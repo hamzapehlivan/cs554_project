@@ -25,9 +25,12 @@ best_score= 0
 matches = []
 reference_face = -1
 reference_kps = -1
+idx = 0
 for face in faces:
     x,y,w,h = face
     face_img = image_ref[y:y+h, x:x+w]
+    cv2.imwrite(f"cropped{idx}.png", face_img)
+    idx = idx +1
     kps, desc = sift.detectAndCompute(face_img, None)
     knn_matches = matcher.knnMatch(desc,target_desc,k=2)
 
