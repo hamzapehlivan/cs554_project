@@ -336,16 +336,16 @@ class inpaint_image:
         return self.working_image
 
 
-image = io.imread("results/target.png")
-mask = io.imread("results/masked.png", as_gray=True)
+image = io.imread("results/cropped.png")
+mask = io.imread("results/mask.png", as_gray=True)
 
 # Process the mask
 mask[mask>0.5] = 1
 mask[mask<0.5] = 0
 
-output_image = inpaint_image(image,mask,21).inpainter()
+output_image = inpaint_image(image,mask,31).inpainter()
 plt.imshow(output_image)
 plt.xticks([])
 plt.yticks([])
 plt.show()
-io.imsave("results/background.png", output_image)
+io.imsave("results/background2.png", output_image)

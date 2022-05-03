@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Background",
+            "type": "python",
+            "request": "launch",
+            "program": "inpainter.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Real Estate",
             "type": "python",
             "request": "launch",

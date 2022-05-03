@@ -25,14 +25,14 @@ class marker:
         
         if self.prev_point and flags & cv2.EVENT_FLAG_LBUTTON:
             for dst, color in zip(self.destination, self.color_function()):
-                cv2.line(dst,self.prev_point,initial_point, color, 11)
+                cv2.line(dst,self.prev_point,initial_point, color, 21)
                 self.dirty = True
                 self.prev_point = initial_point
                 self.show()
         
     
 def main():
-    img = cv2.imread("data/TransFill_Testing_Data/Small_Set/target/22c25b89bb7005de_10_target_x1_GT.png", cv2.IMREAD_COLOR)
+    img = cv2.imread("results/target.png", cv2.IMREAD_COLOR)
     image_copy = img.copy()
     
     inpaintmask = np.zeros(img.shape[:2],np.uint8)
