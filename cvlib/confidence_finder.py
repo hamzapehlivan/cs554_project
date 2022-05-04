@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import math
+from cvlib import poisson 
 
 class ConfidenceFinder():
     #Mask is 1 for masked areas.
@@ -14,6 +15,9 @@ class ConfidenceFinder():
         self.halfPatchWidth = halfPatchWidth #Patch size= halfPatchWidth*2+1 x halfPatchWidth*2+1 (9x9 default)
         self.process()
     
+    def patch_from_corners(self, image, upperLeft, lowerRight):
+        return image[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1]
+
     def process(self):
         self.initializeMats()
         self.calculateGradients()
@@ -21,9 +25,9 @@ class ConfidenceFinder():
         self.computeConfidence()
         self.computeData()
         self.computePriority()
-        #x,y = self.fillFront[self.prior]
-        x,y = 103,9
-        upperLeft, lowerRight = self.getPatch((x,y))
+        x,y = self.fillFront[self.prior]
+        x,y = 83,32
+        upperLeft, lowerRight = self.getCorners((x,y))
         out = cv2.rectangle(self.inputImage.copy(), upperLeft, lowerRight, (0,0,255), thickness=1)
         cv2.imwrite("results/rectangle.png", out)
         out = cv2.rectangle(self.reference.copy(), upperLeft, lowerRight, (0,0,255), thickness=1)
@@ -31,23 +35,31 @@ class ConfidenceFinder():
         patch_target = self.inputImage[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1]  
         patch_source= self.reference[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1]  
         patch_mask = self.mask[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1]
-        patch_mask = np.expand_dims(patch_mask, -1)
-        patch_mixed = patch_source*patch_mask + patch_target*(1-patch_mask)
+        #patch_mask = np.expand_dims(patch_mask, -1)
+        patch_boundary = self.patch_from_corners(self.boundryMat, upperLeft, lowerRight)
+        poisson_mask = 1 - patch_boundary
+        result_stack = [poisson.process(patch_source[:,:,i], patch_target[:,:,i], patch_mask) for i in range(3)]
+        result = cv2.merge(result_stack)
+       
+        #patch_mixed = patch_source*patch_mask + patch_target*(1-patch_mask)
 
         # patch_target = cv2.cvtColor(patch_target, cv2.COLOR_BGR2HSV)
         # patch_source = cv2.cvtColor(patch_source, cv2.COLOR_BGR2HSV)
         # patch_source[:,:,-1] = patch_source[:,:,-1] -3
         # patch_source = cv2.cvtColor(patch_source, cv2.COLOR_HSV2BGR)
         out = self.inputImage.copy()
-        out[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1] = patch_target
+        out[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1] = patch_source
         cv2.imwrite("results/copied.png", out)
+        out[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1] = result
+        cv2.imwrite('results/blendedmanual.png', out)
 
-        blended = cv2.seamlessClone(patch_source, patch_target, np.ones_like(patch_source), 
-                    (self.halfPatchWidth, self.halfPatchWidth),cv2.MIXED_CLONE)
+        blended = cv2.seamlessClone(patch_source, patch_target, patch_mask, 
+                    (self.halfPatchWidth, self.halfPatchWidth),cv2.NORMAL_CLONE)
         out = self.inputImage.copy()
         out[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1] = blended
         cv2.imwrite("results/blended.png", out)
         print()
+        
     def initializeMats(self):
         # _, self.confidence = cv2.threshold(self.mask, 0.5, 255, cv2.THRESH_BINARY)
         # _, self.confidence = cv2.threshold(self.confidence, 2, 1, cv2.THRESH_BINARY_INV)
@@ -78,7 +90,7 @@ class ConfidenceFinder():
         self.NORMAL_KERNELY = cv2.transpose(self.NORMAL_KERNELX)
 
     def calculateGradients(self):
-        srcGray = cv2.cvtColor(self.workImage, cv2.COLOR_BGR2GRAY) # TODO: check type CV_BGR2GRAY
+        srcGray = cv2.cvtColor(self.workImage, cv2.COLOR_BGR2GRAY)
         
         self.gradientX = cv2.Scharr(srcGray, cv2.CV_32F, 1, 0) # default parameter: scale shoule be 1
         self.gradientX = cv2.convertScaleAbs(self.gradientX)
@@ -100,17 +112,17 @@ class ConfidenceFinder():
 
     def computeFillFront(self):
         # elements of boundryMat, whose value > 0 are neighbour pixels of target region. 
-        boundryMat = cv2.filter2D(self.targetRegion, cv2.CV_32F, self.LAPLACIAN_KERNEL)
-        _, out = cv2.threshold(boundryMat, 0.1, 255, cv2.THRESH_BINARY)
+        self.boundryMat = cv2.filter2D(self.targetRegion, cv2.CV_32F, self.LAPLACIAN_KERNEL)
+        _, out = cv2.threshold(self.boundryMat , 0.1, 255, cv2.THRESH_BINARY)
         cv2.imwrite("results/boundary.png", out.astype('uint8'))
         sourceGradientX = cv2.filter2D(self.sourceRegion, cv2.CV_32F, self.NORMAL_KERNELX)
         sourceGradientY = cv2.filter2D(self.sourceRegion, cv2.CV_32F, self.NORMAL_KERNELY)
         del self.fillFront[:]
         del self.normals[:]
-        height, width = boundryMat.shape[:2]
+        height, width = self.boundryMat .shape[:2]
         for y in range(height):
             for x in range(width):
-                if boundryMat[y, x] > 0:
+                if self.boundryMat [y, x] > 0:
                     self.fillFront.append((x, y))
                     dx = sourceGradientX[y, x]
                     dy = sourceGradientY[y, x]
@@ -121,7 +133,8 @@ class ConfidenceFinder():
                         normalX /= tempF
                         normalY /= tempF
                     self.normals.append((normalX, normalY))
-    def getPatch(self, point):
+        self.boundryMat = (self.boundryMat > 0).astype(np.uint8)
+    def getCorners(self, point):
         centerX, centerY = point
         height, width = self.workImage.shape[:2]
         minX = max(centerX - self.halfPatchWidth, 0)
@@ -135,7 +148,7 @@ class ConfidenceFinder():
     def computeConfidence(self):
         for p in self.fillFront:
             pX, pY = p
-            (aX, aY), (bX, bY) = self.getPatch(p)
+            (aX, aY), (bX, bY) = self.getCorners(p)
             total = 0
             for y in range(aY, bY + 1):
                 for x in range(aX, bX + 1):
@@ -179,6 +192,7 @@ class ConfidenceFinder():
             # if priority > maxPriority:
             #     maxPriority = priority
             #     self.targetIndex = i
+        #Content aware priority
         for i in range(len(self.fillFront)):
             x,y = self.fillFront[i]
             priority_patch = self.getNeighbours(self.priorities, (x,y))
