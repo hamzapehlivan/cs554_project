@@ -16,7 +16,8 @@
             "type": "python",
             "request": "launch",
             "program": "real_estate.py",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "args": ["--eval"]
         },
         {
             "name": "Face",

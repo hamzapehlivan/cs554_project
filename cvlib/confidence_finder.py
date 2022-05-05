@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import math
-from cvlib import poisson 
+from cvlib.poisson import Poisson
 
 class ConfidenceFinder():
     #Mask is 1 for masked areas.
@@ -17,15 +17,38 @@ class ConfidenceFinder():
     
     def patch_from_corners(self, image, upperLeft, lowerRight):
         return image[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1]
+    def update_working_image(self, patch, upperLeft, lowerRight):
+        self.workImage[upperLeft[1]:lowerRight[1]+1, upperLeft[0]:lowerRight[0]+1] = patch
 
     def process(self):
         self.initializeMats()
-        self.calculateGradients()
+        #self.calculateGradients()
         self.computeFillFront()
-        self.computeConfidence()
-        self.computeData()
-        self.computePriority()
-        x,y = self.fillFront[self.prior]
+        # self.computeConfidence()
+        # self.computeData()
+        # self.computePriority()
+
+        poisson = Poisson(self.workImage, self.reference, self.mask)
+        blended = poisson.process()
+        cv2.imwrite("results/blended.png", blended)
+
+        for i in range(len(self.fillFront)):
+            pt = self.fillFront[i]
+            upperLeft, lowerRight = self.getCorners(pt)
+            out = cv2.rectangle(self.workImage.copy(), upperLeft, lowerRight, (0,0,255), thickness=1)
+            cv2.imwrite("results/rectangle.png", out)
+            out = cv2.rectangle(self.reference.copy(), upperLeft, lowerRight, (0,0,255), thickness=1)
+            cv2.imwrite("results/rectangle2.png", out)
+            target_patch = self.patch_from_corners(self.workImage, upperLeft, lowerRight)
+            source_patch = self.patch_from_corners(self.reference, upperLeft, lowerRight)
+            mask_patch = self.patch_from_corners(self.mask, upperLeft, lowerRight)
+            poisson = Poisson(target_patch, source_patch, mask_patch)
+            blended = poisson.process()
+            self.update_working_image(blended, upperLeft, lowerRight)
+            cv2.imwrite("results/blended.png", self.workImage)
+
+
+        #x,y = self.fillFront[self.prior]
         x,y = 83,32
         upperLeft, lowerRight = self.getCorners((x,y))
         out = cv2.rectangle(self.inputImage.copy(), upperLeft, lowerRight, (0,0,255), thickness=1)

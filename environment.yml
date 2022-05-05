@@ -5,3 +5,4 @@ dependencies:
   - matplotlib
   - opencv
   - numba
+  - scikit-image
