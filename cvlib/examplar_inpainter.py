@@ -6,7 +6,6 @@ import numpy as np
 import numba as nb
 import util
 from numba import jit, cuda
-print(cuda.select_device(0))
 
 class ExamplarInpainter():
     DEFAULT_HALF_PATCH_WIDTH=3
@@ -70,20 +69,21 @@ class ExamplarInpainter():
         self.initializeMats()
         self.calculateGradients()
         stay = True
-
+        print("Examplar based inpainting started")
+        start = time.time()
         while stay:
             self.computeFillFront()
             self.computeConfidence()
             self.computeData()
             self.computeTarget()
-            print ('Computing bestpatch', time.asctime())
+            #print ('Computing bestpatch', time.asctime())
             self.computeBestPatch()
             self.updateMats()
             stay = self.checkEnd()
 
-            cv2.imwrite("updatedMask.jpg", self.updatedMask)
+            #cv2.imwrite("updatedMask.jpg", self.updatedMask)
             cv2.imwrite("workImage.jpg", self.workImage)
-
+        print("Examplar based inpainting finished in ", time.time() - start, " seconds")
         return np.copy(self.workImage)
         #self.result = np.copy(self.workImage)
         #cv2.imshow("Confidence", self.confidence)
@@ -219,7 +219,6 @@ class ExamplarInpainter():
 
 
     def computeBestPatch(self):
-        print('best patch finding')
         minError = bestPatchVariance = 9999999999999999
         currentPoint = self.fillFront[self.targetIndex]
         (aX, aY), (bX, bY) = self.getPatch(currentPoint)
@@ -232,7 +231,8 @@ class ExamplarInpainter():
             self.patchHeight, self.patchWidth = pHeight, pWidth
             area = pHeight * pWidth
             SUM_KERNEL = np.ones((pHeight, pWidth), dtype = np.uint8)
-            convolvedMat = cv2.filter2D(self.originalSourceRegion, cv2.CV_8U, SUM_KERNEL, anchor = (0, 0))
+            convolvedMat = cv2.filter2D(self.originalSourceRegion, cv2.CV_32F, SUM_KERNEL, anchor = (0, 0)) #cv2.CV_8U
+            convolvedMat = convolvedMat.astype(np.int32)
             self.sourcePatchULList = []
             
             # sourcePatchULList: list whose elements is possible to be the UpperLeft of an patch to reference.
@@ -301,7 +301,7 @@ class ExamplarInpainter():
 
 
     def updateMats(self):
-        print("starting updateMats.....")
+        #print("starting updateMats.....")
         targetPoint = self.fillFront[self.targetIndex]
         tX, tY = targetPoint
         (aX, aY), (bX, bY) = self.getPatch(targetPoint)

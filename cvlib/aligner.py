@@ -10,6 +10,7 @@ class Aligner():
         self.debug = debug
     
     def align(self, nndr_thres=0.75):
+        print("Image alignment started")
         #Create SIFT Features and Descriptors
         sift = cv2.SIFT_create()
         matcher = cv2.BFMatcher.create(normType = cv2.NORM_L2, crossCheck=False)
@@ -26,6 +27,9 @@ class Aligner():
         #Homography Estimation with RANSAC
         reference_pts = np.float32([ reference_kps[m.queryIdx].pt for m in matches ])
         target_pts = np.float32([ target_kps[m.trainIdx].pt for m in matches ])
+        if len(reference_pts) < 4:
+            print("Image Alignment Failed. Falling back to Examplar Based Inpainting.")
+            return None, None
         H, inliers= cv2.findHomography(reference_pts, target_pts, cv2.RANSAC,ransacReprojThreshold=5)
         inliers = inliers.ravel().tolist()
 
@@ -46,5 +50,5 @@ class Aligner():
             cv2.imwrite("results/ransac_matches.png", out)
             cv2.imwrite("results/warped.png", warped)
             cv2.imwrite("results/aligned.png", aligned)
-            
+
         return aligned, warped

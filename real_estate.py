@@ -11,6 +11,8 @@ from cvlib.aligner import Aligner
 from cvlib.examplar_inpainter import ExamplarInpainter
 from cvlib.poisson import Poisson
 
+#Poisson - SSIM:  0.9693283962589011, PSNR: 33.710812231186864
+#No poisson -  SSIM score:  0.966177554097476,  PSNR score:  32.80331837597794
 #Argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument('--target_dir', type=str, default="data/TransFill_Testing_Data/Small_Set/target", help='Images that will have holes')
@@ -19,7 +21,7 @@ parser.add_argument('--hole_dir', type=str, default="data/TransFill_Testing_Data
 parser.add_argument('--gui', action="store_true", help='Let user refine inpainting result.')
 parser.add_argument('--eval', action="store_true", help="Whether to run evaluation code.")
 parser.add_argument('--debug', action="store_true", help="Whether to save intermediate results for debugging")
-parser.add_argument('--save_dir', type=str, default='result', help='Where to save output images')
+parser.add_argument('--save_dir', type=str, default='result_nopoisson', help='Where to save output images')
 args = parser.parse_args()
 gui = args.gui
 eval = args.eval
@@ -27,7 +29,7 @@ target_dir = args.target_dir
 reference_dir = args.reference_dir
 hole_dir = args.hole_dir
 save_dir = args.save_dir
-debug = False
+debug = args.debug
 os.makedirs(save_dir, exist_ok=True)
 
 #Mouse Handler Function in GUI.
@@ -58,6 +60,7 @@ if len(hole_images) == 1:
     hole_images = hole_images * dataset_size
 ssim_list = []
 psnr_list = []
+count = 0
 for i in range(dataset_size):
     image_target = cv2.imread(os.path.join(target_dir, target_images[i]), cv2.IMREAD_COLOR)
     mask = cv2.imread(os.path.join(hole_dir, hole_images[i]), cv2.IMREAD_GRAYSCALE) / 255
@@ -73,7 +76,12 @@ for i in range(dataset_size):
 
     aligner = Aligner(masked_target, image_ref, mask, debug=debug)
     aligned, warped = aligner.align()
-
+    #Cannot align images, fall back to examplar based inpainting
+    if aligned is None:
+        count = count +1
+        #continue
+        examplar_inpainter = ExamplarInpainter(masked_target, 1-mask[:,:,0], halfPatchWidth=25 ,debug=debug)
+        warped = examplar_inpainter.inpaint()
     ## Correct unaligned regions with Examplar Based Inpainting
     if gui:
         image = aligned.copy()
@@ -103,23 +111,29 @@ for i in range(dataset_size):
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
             input_mask = cv2.dilate(input_mask, kernel, iterations=1)
             #Examplar based inpainting
-            examplar_inpainter = ExamplarInpainter(input_image, input_mask)
+            examplar_inpainter = ExamplarInpainter(input_image, input_mask, debug=debug)
             result = examplar_inpainter.inpaint()
             util.update_image(warped, result, upperLeft, lowerRight)
             if debug:
                 cv2.imwrite("results/examplar.png", warped)
-
-    poisson = Poisson( image_target,warped, 1-mask)
+    
+    #Poisson Blending
+    poisson_mask = (1-mask)[:,:,0]
+    poisson = Poisson(image_target, warped, poisson_mask)
     blended = poisson.process()
-    blended = blended.astype(np.uint8)
-    cv2.imwrite(os.path.join(save_dir, f'result{i}.png'), blended)
+    blended = cv2.convertScaleAbs(blended)
+    #blended = aligned.copy() # To measure effect of poisson blending
+    result = masked_target*mask + blended*(1-mask)
+    cv2.imwrite(os.path.join(save_dir, f'result{i}.png'), result)
     if eval:
-        psnr = PSNR(image_target, blended)
-        ssim = SSIM(image_target, blended, channel_axis=2)
+        psnr = PSNR(image_target, result)
+        ssim = SSIM(image_target, result, channel_axis=2)
         psnr_list.append(psnr)
         ssim_list.append(ssim)
         print(f"Image {i}, PSNR: {psnr}, SSIM: {ssim}")
+        print(f"PSNR so far: {np.mean(psnr_list)}, SSIM so far: {np.mean(ssim_list)}")
 print("SSIM score: ", np.mean(ssim_list))
 print("PSNR score: ", np.mean(psnr_list))
+print("Cant align", count)
 
 
