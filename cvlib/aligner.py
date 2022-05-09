@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from cvlib.confidence_finder import ConfidenceFinder
 
 class Aligner():
     def __init__(self, target, reference, mask, debug=True) -> None:
